@@ -147,10 +147,10 @@ jobs:
         run: |
           $GIT_COMMIT = (git describe --always --abbrev=8 --dirty) | Out-String
           $DATE_TIME = ([datetime]::Now.ToUniversalTime().toString("yyyy-MM-ddTHH:mm:ssZ")) | Out-String
-          $LATEST_TAG = ((git describe --tags $(git rev-list --tags --max-count=1)) | Out-String).Trim()
-          $REV_LIST=$LATEST_TAG+"..HEAD"
-          $COMMITS_FROM_TAG= ((git rev-list $REV_LIST --count) | Out-String).Trim()
-          $FILE_VERSION = $LATEST_TAG.substring(1)  + "." + $COMMITS_FROM_TAG
+          # the fork has no tags, the version is read from internal/version/version.go
+          $BASE_VERSION = (Select-String -Path .\internal\version\version.go -Pattern 'version = "([0-9.]+)').Matches[0].Groups[1].Value
+          $LATEST_TAG = "v" + $BASE_VERSION
+          $FILE_VERSION = $BASE_VERSION + "." + $Env:GITHUB_RUN_NUMBER
           go install github.com/tc-hib/go-winres@latest
           go-winres simply --arch amd64 --product-version $LATEST_TAG-dev-$GIT_COMMIT --file-version "$FILE_VERSION" --file-description "SFTPGo server" --product-name SFTPGo --copyright "2019-2025 Nicola Murino" --original-filename sftpgo.exe --icon  .\windows-installer\icon.ico
           go build -trimpath -tags nopgxregisterdefaulttypes,disable_grpc_modules -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=$GIT_COMMIT -X github.com/drakkan/sftpgo/v2/internal/version.date=$DATE_TIME" -o sftpgo.exe
@@ -191,10 +191,8 @@ jobs:
           xcopy .\static .\output\static\ /E
           mkdir output\openapi
           xcopy .\openapi .\output\openapi\ /E
-          $LATEST_TAG = ((git describe --tags $(git rev-list --tags --max-count=1)) | Out-String).Trim()
-          $REV_LIST=$LATEST_TAG+"..HEAD"
-          $COMMITS_FROM_TAG= ((git rev-list $REV_LIST --count) | Out-String).Trim()
-          $Env:SFTPGO_ISS_DEV_VERSION = $LATEST_TAG  + "." + $COMMITS_FROM_TAG
+          $BASE_VERSION = (Select-String -Path .\internal\version\version.go -Pattern 'version = "([0-9.]+)').Matches[0].Groups[1].Value
+          $Env:SFTPGO_ISS_DEV_VERSION = "v" + $BASE_VERSION + "." + $Env:GITHUB_RUN_NUMBER
           iscc .\windows-installer\sftpgo.iss
 
           rm .\output\sftpgo.exe

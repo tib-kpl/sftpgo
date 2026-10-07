@@ -4,9 +4,10 @@ NFPM_VERSION=2.47.0
 NFPM_ARCH=${NFPM_ARCH:-amd64}
 if [ -z ${SFTPGO_VERSION} ]
 then
-  LATEST_TAG=$(git describe --tags $(git rev-list --tags --max-count=1))
-  NUM_COMMITS_FROM_TAG=$(git rev-list ${LATEST_TAG}.. --count)
-  VERSION=$(echo "${LATEST_TAG}" | awk -F. -v OFS=. '{$NF++;print}')-dev.${NUM_COMMITS_FROM_TAG}
+  # the fork has no tags, the version is read from internal/version/version.go
+  BASE_VERSION=$(sed -n 's/^[[:space:]]*version = "\([0-9.]*\).*"/\1/p' ../internal/version/version.go)
+  NUM_COMMITS=$(git rev-list HEAD --count)
+  VERSION=${BASE_VERSION}-dev.${NUM_COMMITS}
 else
   VERSION=${SFTPGO_VERSION}
 fi
