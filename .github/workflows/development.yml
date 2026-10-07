@@ -1,9 +1,9 @@
 name: CI
 
+# tests run on pull requests or on demand, commits pushed to main only run the Release workflow
 on:
-  push:
-    branches: [main]
   pull_request:
+  workflow_dispatch:
 
 # a new push cancels the runs still in progress for the same branch, tag or pull request
 concurrency:

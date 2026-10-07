@@ -129,9 +129,15 @@ deb:
 
 EOF
 
+# download the nfpm build for the host running this script, not for the target arch
+NFPM_HOST_ARCH=x86_64
+if [ "$(uname -m)" = "aarch64" ] || [ "$(uname -m)" = "arm64" ]
+then
+  NFPM_HOST_ARCH=arm64
+fi
 curl --retry 5 --retry-delay 2 --connect-timeout 10 -L -O \
-  https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_Linux_x86_64.tar.gz
-tar xvf nfpm_${NFPM_VERSION}_Linux_x86_64.tar.gz nfpm
+  https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_Linux_${NFPM_HOST_ARCH}.tar.gz
+tar xvf nfpm_${NFPM_VERSION}_Linux_${NFPM_HOST_ARCH}.tar.gz nfpm
 chmod 755 nfpm
 mkdir rpm
 ./nfpm -f nfpm.yaml pkg -p rpm -t rpm

@@ -15,8 +15,8 @@ This is a fork of [drakkan/sftpgo](https://github.com/drakkan/sftpgo) focused on
 
 ### Builds and distribution
 
-- **A release for every commit**: each commit pushed to `main` publishes a prerelease on [GitHub Releases](https://github.com/tib-kpl/sftpgo/releases), with Linux (tar, deb, rpm), macOS and Windows (installer and portable) builds. These builds are numbered `v<version>.<build number>`, for example `v2.7.99.42`. Tags starting with `v` still create a draft release, as upstream.
-- **Docker images**: published to Docker Hub as [`tibkpl/sftpgo`](https://hub.docker.com/r/tibkpl/sftpgo). The `edge` tag follows `main`, and the usual variants are available (`edge-alpine`, `edge-distroless-slim`, `edge-plugins`, and `-slim` versions).
+- **A release for every commit**: each commit pushed to `main` runs a single workflow that publishes a prerelease on [GitHub Releases](https://github.com/tib-kpl/sftpgo/releases), with Linux x86_64 and arm64 (tar, deb, rpm), macOS and Windows (installer and portable) builds. These builds are numbered `v<version>.<build number>`, for example `v2.7.99.42`. Tags starting with `v` still create a draft release, as upstream. Tests run on pull requests or on demand.
+- **Docker images**: the same workflow publishes a Debian based image for `linux/amd64` and `linux/arm64` to Docker Hub as [`tibkpl/sftpgo`](https://hub.docker.com/r/tibkpl/sftpgo). The `edge` tag follows `main`, each build is also tagged with its version, and `latest` points to the last `v` tag.
 
   ```shell
   docker pull tibkpl/sftpgo:edge
