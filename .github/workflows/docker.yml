@@ -10,6 +10,11 @@ on:
       - v*
   pull_request:
 
+# a new push cancels the runs still in progress for the same branch, tag or pull request
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 

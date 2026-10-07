@@ -6,6 +6,11 @@ on:
     tags: 'v*'
   workflow_dispatch:
 
+# a new push cancels the runs still in progress for the same branch, tag or pull request
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   id-token: write
   contents: write
@@ -413,7 +418,9 @@ jobs:
         run: |
           export NFPM_ARCH=${{ matrix.go-arch }}
           cd pkgs
-          ./build.sh
+          # nfpm only strips the leading "v" from semver versions, so strip it here to have
+          # predictable package names also for the four parts versions, e.g. v2.7.99.42
+          SFTPGO_VERSION=${SFTPGO_VERSION#v} ./build.sh
           PKG_VERSION=${SFTPGO_VERSION:1}
           echo "pkg-version=${PKG_VERSION}" >> $GITHUB_OUTPUT
         env:
