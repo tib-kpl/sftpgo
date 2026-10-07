@@ -2,7 +2,9 @@ name: Release
 
 on:
   push:
+    branches: [main]
     tags: 'v*'
+  workflow_dispatch:
 
 permissions:
   id-token: write
@@ -12,7 +14,30 @@ env:
   GO_VERSION: 1.27.1
 
 jobs:
+  get-version:
+    name: Get version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.VERSION }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # Tags keep their own name, commits on a branch get a numeric version built from
+      # internal/version/version.go and the run number, e.g. v2.7.99.42
+      - name: Get SFTPGo version
+        id: get_version
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/}"
+          else
+            BASE_VERSION=$(sed -n 's/^[[:space:]]*version = "\([0-9.]*\).*"/\1/p' internal/version/version.go)
+            VERSION="v${BASE_VERSION}.${GITHUB_RUN_NUMBER}"
+          fi
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+        shell: bash
+
   prepare-sources-with-deps:
+    needs: get-version
     name: Prepare sources with deps
     runs-on: ubuntu-latest
     steps:
@@ -24,7 +49,7 @@ jobs:
 
       - name: Get SFTPGo version
         id: get_version
-        run: echo "VERSION=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_OUTPUT
+        run: echo "VERSION=${{ needs.get-version.outputs.version }}" >> $GITHUB_OUTPUT
 
       - name: Prepare release
         run: |
@@ -43,6 +68,7 @@ jobs:
           retention-days: 1
 
   prepare-windows:
+    needs: get-version
     name: Prepare Windows binaries
     runs-on: windows-2022
 
@@ -55,14 +81,16 @@ jobs:
 
       - name: Get SFTPGo version
         id: get_version
-        run: echo "VERSION=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_OUTPUT
+        run: echo "VERSION=${{ needs.get-version.outputs.version }}" >> $GITHUB_OUTPUT
         shell: bash
 
       - name: Build
         run: |
           $GIT_COMMIT = (git describe --always --abbrev=8 --dirty) | Out-String
           $DATE_TIME = ([datetime]::Now.ToUniversalTime().toString("yyyy-MM-ddTHH:mm:ssZ")) | Out-String
-          $FILE_VERSION = $Env:SFTPGO_VERSION.substring(1)  + ".0"
+          $FILE_VERSION_PARTS = @($Env:SFTPGO_VERSION.substring(1).split('.'))
+          while ($FILE_VERSION_PARTS.Count -lt 4) { $FILE_VERSION_PARTS += '0' }
+          $FILE_VERSION = $FILE_VERSION_PARTS -join '.'
           go install github.com/tc-hib/go-winres@latest
           go-winres simply --arch amd64 --product-version $Env:SFTPGO_VERSION-$GIT_COMMIT --file-version "$FILE_VERSION" --file-description "SFTPGo server" --product-name SFTPGo --copyright "2019-2025 Nicola Murino" --original-filename sftpgo.exe --icon  .\windows-installer\icon.ico
           go build -trimpath -tags nopgxregisterdefaulttypes,disable_grpc_modules -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=$GIT_COMMIT -X github.com/drakkan/sftpgo/v2/internal/version.date=$DATE_TIME" -o sftpgo.exe
@@ -170,6 +198,7 @@ jobs:
           retention-days: 1
 
   prepare-mac:
+    needs: get-version
     name: Prepare macOS binaries
     runs-on: macos-14
 
@@ -182,7 +211,7 @@ jobs:
 
       - name: Get SFTPGo version
         id: get_version
-        run: echo "VERSION=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_OUTPUT
+        run: echo "VERSION=${{ needs.get-version.outputs.version }}" >> $GITHUB_OUTPUT
         shell: bash
 
       - name: Build for macOS x86_64
@@ -239,6 +268,7 @@ jobs:
           retention-days: 1
 
   prepare-linux:
+    needs: get-version
     name: Prepare Linux binaries
     runs-on: ubuntu-latest
     strategy:
@@ -275,7 +305,7 @@ jobs:
       - name: Get versions
         id: get_version
         run: |
-          echo "SFTPGO_VERSION=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_OUTPUT
+          echo "SFTPGO_VERSION=${{ needs.get-version.outputs.version }}" >> $GITHUB_OUTPUT
           echo "GO_VERSION=${GO_VERSION}" >> $GITHUB_OUTPUT
           echo "COMMIT=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
         shell: bash
@@ -405,14 +435,14 @@ jobs:
 
   prepare-linux-bundle:
     name: Prepare Linux bundle
-    needs: prepare-linux
+    needs: [get-version, prepare-linux]
     runs-on: ubuntu-latest
 
     steps:
       - name: Get versions
         id: get_version
         run: |
-          echo "SFTPGO_VERSION=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_OUTPUT
+          echo "SFTPGO_VERSION=${{ needs.get-version.outputs.version }}" >> $GITHUB_OUTPUT
         shell: bash
 
       - name: Download amd64 artifact
@@ -462,7 +492,7 @@ jobs:
 
   create-release:
     name: Release
-    needs: [prepare-linux-bundle, prepare-sources-with-deps, prepare-mac, prepare-windows]
+    needs: [get-version, prepare-linux-bundle, prepare-sources-with-deps, prepare-mac, prepare-windows]
     runs-on: ubuntu-latest
 
     steps:
@@ -470,7 +500,7 @@ jobs:
       - name: Get versions
         id: get_version
         run: |
-          SFTPGO_VERSION=${GITHUB_REF/refs\/tags\//}
+          SFTPGO_VERSION=${{ needs.get-version.outputs.version }}
           PKG_VERSION=${SFTPGO_VERSION:1}
           echo "SFTPGO_VERSION=${SFTPGO_VERSION}" >> $GITHUB_OUTPUT
           echo "PKG_VERSION=${PKG_VERSION}" >> $GITHUB_OUTPUT
@@ -582,7 +612,12 @@ jobs:
           mv sftpgo_windows_arm64.exe sftpgo_${SFTPGO_VERSION}_windows_arm64.exe
           mv sftpgo_windows_x86.exe sftpgo_${SFTPGO_VERSION}_windows_x86.exe
           mv sftpgo_portable.zip sftpgo_${SFTPGO_VERSION}_windows_portable.zip
-          gh release create "${SFTPGO_VERSION}" -t "${SFTPGO_VERSION}" --draft
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            gh release create "${SFTPGO_VERSION}" -t "${SFTPGO_VERSION}" --draft
+          else
+            gh release create "${SFTPGO_VERSION}" -t "${SFTPGO_VERSION}" --target "${GITHUB_SHA}" --prerelease \
+              --notes "Automatic build of commit ${GITHUB_SHA::8}: $(git log -1 --pretty=%s)"
+          fi
           gh release upload "${SFTPGO_VERSION}" sftpgo_*.xz --clobber
           gh release upload "${SFTPGO_VERSION}" sftpgo-*.rpm --clobber
           gh release upload "${SFTPGO_VERSION}" sftpgo_*.deb --clobber
