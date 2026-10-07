@@ -1,5 +1,31 @@
 # SFTPGo
 
+## About this fork
+
+This is a fork of [drakkan/sftpgo](https://github.com/drakkan/sftpgo) focused on making the web interface easier to use day to day. It follows the upstream project and adds the following changes.
+
+### WebAdmin
+
+- **Bulk actions on users**: the users page (`/web/admin/users`) has a checkbox on each row, so you can enable, disable or delete many users at once instead of one by one.
+  - The header checkbox selects the current page, and the "Select all N users" button selects every user across all pages. If a search is active, only the matching users are selected.
+  - Disabling users also closes their active sessions.
+  - If some users cannot be updated, the others are still processed and the failed ones are listed.
+  - Actions follow the admin permissions: enabling and disabling require `edit_users`, deleting requires `del_users`.
+- **Web sessions survive restarts**: if no `signing_passphrase` is configured, a signing key is generated on first start and saved as `httpd_signing_key` in the configuration directory. Restarting or upgrading the server no longer logs everyone out. A configured `signing_passphrase` still takes precedence.
+
+### Builds and distribution
+
+- **A release for every commit**: each commit pushed to `main` publishes a prerelease on [GitHub Releases](https://github.com/tib-kpl/sftpgo/releases), with Linux (tar, deb, rpm), macOS and Windows (installer and portable) builds. These builds are numbered `v<version>.<build number>`, for example `v2.7.99.42`. Tags starting with `v` still create a draft release, as upstream.
+- **Docker images**: published to Docker Hub as [`tibkpl/sftpgo`](https://hub.docker.com/r/tibkpl/sftpgo). The `edge` tag follows `main`, and the usual variants are available (`edge-alpine`, `edge-distroless-slim`, `edge-plugins`, and `-slim` versions).
+
+  ```shell
+  docker pull tibkpl/sftpgo:edge
+  ```
+
+The rest of this README is the upstream documentation, and the [upstream documentation site](https://docs.sftpgo.com) applies to this fork as well.
+
+## Upstream project
+
 [![CI Status](https://github.com/drakkan/sftpgo/workflows/CI/badge.svg)](https://github.com/drakkan/sftpgo/workflows/CI/badge.svg)
 [![License: AGPL-3.0-only](https://img.shields.io/badge/License-AGPLv3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go)
